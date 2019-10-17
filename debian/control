@@ -1,0 +1,12 @@
+Source: ros-melodic-dccomms-ros
+Section: misc
+Priority: extra
+Maintainer: centelld <centelld@todo.todo>
+Build-Depends: debhelper (>= 9.0.0), ros-melodic-actionlib, ros-melodic-actionlib-msgs, ros-melodic-catkin, ros-melodic-dccomms-ros-msgs, ros-melodic-message-generation, ros-melodic-roscpp, ros-melodic-rospy, ros-melodic-std-msgs, ros-melodic-tf
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-melodic-dccomms-ros
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-melodic-actionlib, ros-melodic-actionlib-msgs, ros-melodic-dccomms-ros-msgs, ros-melodic-message-runtime, ros-melodic-roscpp, ros-melodic-rospy, ros-melodic-std-msgs, ros-melodic-tf
+Description: The dccomms_ros package
