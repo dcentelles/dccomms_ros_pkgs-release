@@ -40,7 +40,7 @@ endfunction()
 #https://bravenewmethod.com/2017/07/14/git-revision-as-compiler-definition-in-build-with-cmake/
 message(STATUS "Resolving GIT Version...")
 set(_build_version "unknown")
-find_package(Git)
+find_package(Git REQUIRED)
 if(GIT_FOUND)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
@@ -165,7 +165,8 @@ catkin_package(
         actionlib_msgs
         message_runtime
         dccomms_ros_msgs
-#  DEPENDS system_lib
+  DEPENDS 
+  	Git
 )
 
 SET(${PROJECT_NAME}_CPP_FILES
