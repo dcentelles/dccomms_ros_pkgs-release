@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5.1)
 project(dccomms_ros CXX)
 
 #It seams that from Ubuntu 17.10 the linker flag --disable-new-dtags is needed
@@ -56,6 +56,139 @@ endif()
 string(TIMESTAMP _time_stamp)
 #END RESOLVE GIT REVISION
 
+#CHECK IF NS3 HAS ALREADY BEEN BUILT
+message(STATUS "Check NS3 libraries...")
+execute_process (
+    COMMAND bash -c "./ns3configured.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE ns3configured
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+SET(NS3_BUILD ${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/build)
+SET(NS3_INCLUDE_PATH ${NS3_BUILD})
+SET(NS3_HEADERS_DIR ${NS3_BUILD}/ns3)
+
+message("NS3 build path: ${NS3_BUILD}")
+message("NS3 include path: ${NS3_INCLUDE_PATH}")
+message("NS3 headers dir: ${NS3_HEADERS_DIR}")
+execute_process(
+  COMMAND mkdir -p ${NS3_BUILD}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+#https://stackoverflow.com/questions/15972898/cmake-how-to-run-a-add-custom-command-before-everything-else
+#./waf configure --build-profile=debug --enable-examples --enable-tests --enable-sudo
+#./waf build
+#SET(WAF_EXECUTABLE ${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/waf)
+if("${ns3configured}" STREQUAL "true")
+    message(STATUS "Build NS3.")
+    SET(WAF_EXECUTABLE ./waf)
+    execute_process(
+      COMMAND ${WAF_EXECUTABLE} build
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/"
+    )
+else()
+    message(STATUS "Configure and build NS3 in ${NS3_BUILD}")
+    SET(WAF_EXECUTABLE ./waf)
+    execute_process(
+      COMMAND ${WAF_EXECUTABLE} configure --build-profile=debug --enable-examples --enable-tests -o ${NS3_BUILD}#--enable-sudo
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/"
+    )
+    execute_process(
+      COMMAND ${WAF_EXECUTABLE} build
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/"
+    )
+endif()
+
+SET(NS3_LIBS
+    ns3-dev-antenna-debug                ns3-dev-flow-monitor-test-debug      ns3-dev-propagation-debug
+    ns3-dev-antenna-test-debug           ns3-dev-internet-apps-debug          ns3-dev-propagation-test-debug
+    ns3-dev-aodv-debug                   ns3-dev-internet-apps-test-debug     ns3-dev-sixlowpan-debug
+    ns3-dev-aodv-test-debug              ns3-dev-internet-debug               ns3-dev-sixlowpan-test-debug
+    ns3-dev-applications-debug           ns3-dev-internet-test-debug          ns3-dev-spectrum-debug
+    ns3-dev-applications-test-debug      ns3-dev-lr-wpan-debug                ns3-dev-spectrum-test-debug
+    ns3-dev-aqua-sim-ng-debug            ns3-dev-lr-wpan-test-debug           ns3-dev-stats-debug
+    ns3-dev-aqua-sim-ng-test-debug       ns3-dev-lte-debug                    ns3-dev-stats-test-debug
+    ns3-dev-bridge-debug                 ns3-dev-lte-test-debug               ns3-dev-tap-bridge-debug
+    ns3-dev-buildings-debug              ns3-dev-mesh-debug                   ns3-dev-test-debug
+    ns3-dev-buildings-test-debug         ns3-dev-mesh-test-debug              ns3-dev-test-test-debug
+    ns3-dev-config-store-debug           ns3-dev-mobility-debug               ns3-dev-topology-read-debug
+    ns3-dev-core-debug                   ns3-dev-mobility-test-debug          ns3-dev-topology-read-test-debug
+    ns3-dev-core-test-debug              ns3-dev-mpi-debug                    ns3-dev-traffic-control-debug
+    ns3-dev-csma-debug                   ns3-dev-netanim-debug                ns3-dev-traffic-control-test-debug
+    ns3-dev-csma-layout-debug            ns3-dev-netanim-test-debug           ns3-dev-uan-debug
+    ns3-dev-dsdv-debug                   ns3-dev-network-debug                ns3-dev-uan-test-debug
+    ns3-dev-dsdv-test-debug              ns3-dev-network-test-debug           ns3-dev-virtual-net-device-debug
+    ns3-dev-dsr-debug                    ns3-dev-nix-vector-routing-debug     ns3-dev-wave-debug
+    ns3-dev-dsr-test-debug               ns3-dev-olsr-debug                   ns3-dev-wave-test-debug
+    ns3-dev-energy-debug                 ns3-dev-olsr-test-debug              ns3-dev-wifi-debug
+    ns3-dev-energy-test-debug            ns3-dev-point-to-point-debug         ns3-dev-wifi-test-debug
+    ns3-dev-fd-net-device-debug          ns3-dev-point-to-point-layout-debug  ns3-dev-wimax-debug
+    ns3-dev-flow-monitor-debug           ns3-dev-point-to-point-test-debug    ns3-dev-wimax-test-debug
+)
+
+#Catkin do not export well relative paths to libraries: https://github.com/ros/catkin/issues/535
+#link_directories(${NS3_BUILD})
+#So it's better to specify the full path to each .so if the the *.so are not in the common directories (see ldconfig)
+message("NS3 modules: ${NS3_LIBS}")
+FOREACH(lib ${NS3_LIBS})
+	find_library(NS3LIB_${lib} NAMES "${lib}" PATHS "${NS3_BUILD}")
+	if(NOT NS3LIB_${lib})
+		message(FATAL_ERROR "NS3 LIBRARY ${lib} NOT FOUND")
+	else()
+		message(STATUS "#####################  NS3 LIBRARY FOUND: ${NS3LIB_${lib}}")
+	endif()
+ENDFOREACH()
+
+
+SET(${PROJECT_NAME}_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+    ${NS3_INCLUDE_PATH}
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/exprtk
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/src/lib/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/cxxopts/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/modules/dccomms/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/modules/dccomms/deps/cpplogging/includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/modules/dccomms/deps/cpplogging/spdlog/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/modules/dccomms/deps/cpputils/src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/dccomms_utils/modules/dccomms_packets/modules/dccomms/deps/class_loader/include
+    )
+
+###################################
+## catkin specific configuration ##
+###################################
+
+## The catkin_package macro generates cmake config files for your package
+## Declare things to be passed to dependent projects
+## INCLUDE_DIRS: uncomment this if you package contains header files
+## LIBRARIES: libraries you create in this project that dependent projects also need
+## CATKIN_DEPENDS: catkin_packages dependent projects also need
+## DEPENDS: system dependencies of this project that dependent projects also need
+catkin_package(
+  INCLUDE_DIRS ${${PROJECT_NAME}_INCLUDE_DIRS}
+  LIBRARIES 
+  	${PROJECT_NAME}
+	"${NS3_LIBS}"
+	dccomms_utils_d255343
+	dccomms_packets_223e7cd
+	dccomms_022d142
+	cpputils_9e54c35
+	cpplogging_41e5cf4
+	class_loader_67df743
+  CATKIN_DEPENDS
+        roscpp
+        rospy
+        std_msgs
+        actionlib_msgs
+        message_runtime
+        dccomms_ros_msgs
+  DEPENDS 
+  	Git
+	)
+
 ####### HANDLE DEPENDENCIES ######
 SET(DEPS_DIR ${MODULES_DIR})
 SET(TMP0 ${CMAKE_CURRENT_SOURCE_DIR}/${DEPS_DIR})
@@ -85,90 +218,9 @@ endif()
 ENDFOREACH()
 
 
-SET(NS3_BUILD ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/ns3)
-SET(NS3_INCLUDE_PATH ${NS3_BUILD})
-SET(NS3_HEADERS_DIR ${NS3_BUILD}/ns3)
-
-message("NS3 build path: ${NS3_BUILD}")
-message("NS3 include path: ${NS3_INCLUDE_PATH}")
-message("NS3 headers dir: ${NS3_HEADERS_DIR}")
-execute_process(
-  COMMAND mkdir -p ${NS3_BUILD}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-SET(NS3_LIBS
-    libns3-dev-antenna-debug.so                libns3-dev-flow-monitor-test-debug.so      libns3-dev-propagation-debug.so
-    libns3-dev-antenna-test-debug.so           libns3-dev-internet-apps-debug.so          libns3-dev-propagation-test-debug.so
-    libns3-dev-aodv-debug.so                   libns3-dev-internet-apps-test-debug.so     libns3-dev-sixlowpan-debug.so
-    libns3-dev-aodv-test-debug.so              libns3-dev-internet-debug.so               libns3-dev-sixlowpan-test-debug.so
-    libns3-dev-applications-debug.so           libns3-dev-internet-test-debug.so          libns3-dev-spectrum-debug.so
-    libns3-dev-applications-test-debug.so      libns3-dev-lr-wpan-debug.so                libns3-dev-spectrum-test-debug.so
-    libns3-dev-aqua-sim-ng-debug.so            libns3-dev-lr-wpan-test-debug.so           libns3-dev-stats-debug.so
-    libns3-dev-aqua-sim-ng-test-debug.so       libns3-dev-lte-debug.so                    libns3-dev-stats-test-debug.so
-    libns3-dev-bridge-debug.so                 libns3-dev-lte-test-debug.so               libns3-dev-tap-bridge-debug.so
-    libns3-dev-buildings-debug.so              libns3-dev-mesh-debug.so                   libns3-dev-test-debug.so
-    libns3-dev-buildings-test-debug.so         libns3-dev-mesh-test-debug.so              libns3-dev-test-test-debug.so
-    libns3-dev-config-store-debug.so           libns3-dev-mobility-debug.so               libns3-dev-topology-read-debug.so
-    libns3-dev-core-debug.so                   libns3-dev-mobility-test-debug.so          libns3-dev-topology-read-test-debug.so
-    libns3-dev-core-test-debug.so              libns3-dev-mpi-debug.so                    libns3-dev-traffic-control-debug.so
-    libns3-dev-csma-debug.so                   libns3-dev-netanim-debug.so                libns3-dev-traffic-control-test-debug.so
-    libns3-dev-csma-layout-debug.so            libns3-dev-netanim-test-debug.so           libns3-dev-uan-debug.so
-    libns3-dev-dsdv-debug.so                   libns3-dev-network-debug.so                libns3-dev-uan-test-debug.so
-    libns3-dev-dsdv-test-debug.so              libns3-dev-network-test-debug.so           libns3-dev-virtual-net-device-debug.so
-    libns3-dev-dsr-debug.so                    libns3-dev-nix-vector-routing-debug.so     libns3-dev-wave-debug.so
-    libns3-dev-dsr-test-debug.so               libns3-dev-olsr-debug.so                   libns3-dev-wave-test-debug.so
-    libns3-dev-energy-debug.so                 libns3-dev-olsr-test-debug.so              libns3-dev-wifi-debug.so
-    libns3-dev-energy-test-debug.so            libns3-dev-point-to-point-debug.so         libns3-dev-wifi-test-debug.so
-    libns3-dev-fd-net-device-debug.so          libns3-dev-point-to-point-layout-debug.so  libns3-dev-wimax-debug.so
-    libns3-dev-flow-monitor-debug.so           libns3-dev-point-to-point-test-debug.so    libns3-dev-wimax-test-debug.so
-)
-
-#Catkin do not export well relative paths to libraries: https://github.com/ros/catkin/issues/535
-#link_directories(${NS3_BUILD})
-#So it's better to specify the full path to each .so if the the *.so are not in the common directories (see ldconfig)
-message("NS3 modules: ${NS3_LIBS}")
-SET(ns3liblist "")
-FOREACH(lib ${NS3_LIBS})
-SET(path ${NS3_BUILD}/${lib})
-LIST(APPEND ns3liblist ${path})
-ENDFOREACH()
-
-SET(${PROJECT_NAME}_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/include
-    ${NS3_INCLUDE_PATH}
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/exprtk
-    ${${DCCOMMS_UTILS_GIT}_INCLUDE_DIRS}
-    ${catkin_INCLUDE_DIRS}
-    )
-
 SET(${PROJECT_NAME}_CXX_COMPILE_FLAGS "-fPIC -std=c++14 ")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${${PROJECT_NAME}_CXX_COMPILE_FLAGS}")
 
-link_directories(${NS3_BUILD})
-###################################
-## catkin specific configuration ##
-###################################
-
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if you package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  INCLUDE_DIRS ${${PROJECT_NAME}_INCLUDE_DIRS}
-  LIBRARIES ${PROJECT_NAME} ${${DCCOMMS_UTILS_GIT}_LIBRARIES} ${ns3liblist}
-  CATKIN_DEPENDS
-        roscpp
-        rospy
-        std_msgs
-        actionlib_msgs
-        message_runtime
-        dccomms_ros_msgs
-  DEPENDS 
-  	Git
-)
 
 SET(${PROJECT_NAME}_CPP_FILES
         src/simulator/ROSCommsDevice.cpp
@@ -187,70 +239,29 @@ SET(${PROJECT_NAME}_CPP_FILES
         src/simulator/NetsimRouting.cpp
 )
 
-#CHECK IF NS3 HAS ALREADY BEEN BUILT
-message(STATUS "Check NS3 libraries...")
-execute_process (
-    COMMAND bash -c "./ns3configured.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE ns3configured
-    ERROR_QUIET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+#https://answers.ros.org/question/97606/export-a-prebuilt-library-in-catkin/
+#https://github.com/ros-drivers/prosilica_gige_sdk/blob/hydro-devel/CMakeLists.txt
 
-#https://stackoverflow.com/questions/15972898/cmake-how-to-run-a-add-custom-command-before-everything-else
-#./waf configure --build-profile=debug --enable-examples --enable-tests --enable-sudo
-#./waf build
-#SET(WAF_EXECUTABLE ${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/waf)
-if("${ns3configured}" STREQUAL "true")
-    message(STATUS "Build NS3.")
-    SET(WAF_EXECUTABLE ./waf)
-    add_custom_target(
-      ns3
-      COMMAND ${WAF_EXECUTABLE} build
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/"
-    )
-else()
-    message(STATUS "Configure and build NS3 in ${NS3_BUILD}")
-    SET(WAF_EXECUTABLE ./waf)
-    add_custom_target(
-      ns3
-      COMMAND ${WAF_EXECUTABLE} configure --build-profile=debug --enable-examples --enable-tests -o ${NS3_BUILD}#--enable-sudo
-      COMMAND ${WAF_EXECUTABLE} build
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/modules/ns-3-dev/"
-    )
-endif()
+FOREACH(lib ${NS3_LIBS})
+	set(ns3target ${lib})
+	message(STATUS "############# NS3 LIBRARY ${NS3LIB_${lib}} ----> ${ns3target}")
+	add_library(${ns3target} EXCLUDE_FROM_ALL ${NS3LIB_${lib}})
+	#add_custom_command(TARGET ${ns3target} POST_BUILD COMMAND cp ${NS3LIB_${lib}} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/ )
+
+	add_custom_command(TARGET ${ns3target} POST_BUILD COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/ns3-postbuild.sh" ${NS3LIB_${lib}} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
+	set_target_properties(${ns3target} PROPERTIES LINKER_LANGUAGE CXX )
+	install(
+		FILES ${NS3LIB_${lib}}
+   		DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+	)
+ENDFOREACH()
+
 
 add_library(${PROJECT_NAME} SHARED ${${PROJECT_NAME}_CPP_FILES})
-target_include_directories(${PROJECT_NAME} PUBLIC ${${PROJECT_NAME}_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}  ${ns3liblist} ${DCCOMMS_UTILS_GIT} ${catkin_LIBRARIES})
-add_dependencies(${PROJECT_NAME} dccomms_ros_msgs_generate_messages_cpp ns3)
-
-#target_compile_options(pruebas PUBLIC "")
-#https://cmake.org/cmake/help/v3.4/command/find_library.html
-#https://stackoverflow.com/questions/31438916/cmake-cannot-find-library-using-link-directories
-add_executable (example-0 ns3-scripts/example-0.cpp)
-target_link_libraries(example-0 ${PROJECT_NAME})
-target_include_directories(example-0 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable (BMac ns3-scripts/BMac.cpp)
-target_link_libraries(BMac ${PROJECT_NAME})
-target_include_directories(BMac PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable (VBF ns3-scripts/VBF.cpp)
-target_link_libraries(VBF ${PROJECT_NAME})
-target_include_directories(VBF PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable (dccomms-csma ns3-scripts/dccomms-csma.cpp)
-target_link_libraries(dccomms-csma ${PROJECT_NAME})
-target_include_directories(dccomms-csma PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable (dccomms-wifi ns3-scripts/dccomms-wifi.cpp)
-target_link_libraries(dccomms-wifi ${PROJECT_NAME})
-target_include_directories(dccomms-wifi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable (aqua-sim-mac ns3-scripts/aqua-sim-mac.cpp)
-target_link_libraries(aqua-sim-mac ${PROJECT_NAME})
-target_include_directories(aqua-sim-mac PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${${PROJECT_NAME}_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${NS3_LIBS} ${DCCOMMS_UTILS_GIT} ${catkin_LIBRARIES})
+add_dependencies(${PROJECT_NAME} dccomms_ros_msgs_generate_messages_cpp)
 
 ###############################################
 ############ END netsim BUILD #################
@@ -267,14 +278,14 @@ install(FILES
   ${EXPRTK_HEADERS}
   DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
 )
-install(FILES
- ${ns3liblist}
- DESTINATION ${CATKIN_GLOBAL_LIB_DESTINATION}
-)
+#install(FILES
+# ${ns3liblist}
+# DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 message("End ${PROJECT_NAME}")
