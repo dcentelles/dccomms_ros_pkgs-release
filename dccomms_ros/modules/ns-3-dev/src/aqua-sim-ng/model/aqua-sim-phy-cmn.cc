@@ -371,12 +371,6 @@ AquaSimPhyCmn::Recv(Ptr<Packet> p)
   return true;
 }
 
-bool AquaSimPhyCmn::MatchFreq(double freq)
-{
-  double epsilon = 1e-6;	//accuracy for float comparison
-
-  return std::fabs(freq - m_freq) < epsilon;
-}
 
 /**
 * This function pre-validate a incoming packet,

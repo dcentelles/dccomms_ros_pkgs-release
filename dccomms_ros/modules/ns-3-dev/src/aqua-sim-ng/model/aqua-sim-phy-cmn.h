@@ -104,7 +104,10 @@ public:
 
   virtual inline double GetEnergySpread(void){ return m_K; }
   virtual inline double GetFrequency(){ return m_freq; }
-  virtual inline bool MatchFreq(double freq);
+  virtual inline bool MatchFreq(double freq){
+   double epsilon = 1e-6;	//accuracy for float comparison
+   return std::fabs(freq - m_freq) < epsilon;
+  }
   virtual inline double GetL() const { return m_L; }
   virtual inline double GetLambda() { return m_lambda; }
 
