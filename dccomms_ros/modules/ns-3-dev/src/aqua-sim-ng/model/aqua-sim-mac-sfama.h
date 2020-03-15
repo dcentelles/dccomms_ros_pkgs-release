@@ -21,13 +21,12 @@
 #ifndef AQUA_SIM_MAC_SFAMA_H
 #define AQUA_SIM_MAC_SFAMA_H
 
-
-#include "aqua-sim-mac.h"
 #include "aqua-sim-channel.h"
+#include "aqua-sim-mac.h"
 
 #include "ns3/packet.h"
-#include "ns3/timer.h"
 #include "ns3/random-variable-stream.h"
+#include "ns3/timer.h"
 
 #include <queue>
 
@@ -43,232 +42,233 @@ class AquaSimAddress;
  *
  * \brief Helper timer class for SFAMA
  */
-class AquaSimSFama_Wait_Send_Timer: public Timer {
+class AquaSimSFama_Wait_Send_Timer : public Timer {
   friend class AquaSimSFama;
-public:
-	AquaSimSFama_Wait_Send_Timer(Ptr<AquaSimSFama> mac): Timer(Timer::CANCEL_ON_DESTROY) {
-		m_mac = mac;
-	}
-  ~AquaSimSFama_Wait_Send_Timer()
-  {
-    m_mac=0;
-    m_pkt=0;
-  }
 
+public:
+  AquaSimSFama_Wait_Send_Timer(Ptr<AquaSimSFama> mac)
+      : Timer(Timer::CANCEL_ON_DESTROY) {
+    m_mac = mac;
+  }
+  ~AquaSimSFama_Wait_Send_Timer() {
+    m_mac = 0;
+    m_pkt = 0;
+  }
 
   /* Not necessary:
    *      (1)smart ptr will destroy when out of scope
    *      (2)timer set to CANCEL_ON_DESTROY
-  */
+   */
 
   /*
   void Stop() {
-		if( m_pkt != NULL ) {
-			pkt=0;
-			//pkt_ = NULL;
-		}
-		if( this->IsRunning() ) {
-			Cancel();
-		}
-	}
+                if( m_pkt != NULL ) {
+                        pkt=0;
+                        //pkt_ = NULL;
+                }
+                if( this->IsRunning() ) {
+                        Cancel();
+                }
+        }
   */
-
+  int baseDelay = 10;
+  int CurrentDelay = baseDelay;
 protected:
-	Ptr<AquaSimSFama> m_mac;
-	Ptr<Packet> m_pkt;
-	void expire();
+  Ptr<AquaSimSFama> m_mac;
+  Ptr<Packet> m_pkt;
+  void expire();
 };
 
 /**
  * \brief Helper timer class for SFAMA
  */
-class AquaSimSFama_Wait_Reply_Timer: public Timer {
+class AquaSimSFama_Wait_Reply_Timer : public Timer {
   friend class AquaSimSFama;
-public:
-	AquaSimSFama_Wait_Reply_Timer(Ptr<AquaSimSFama> mac): Timer(Timer::CANCEL_ON_DESTROY) {
-		m_mac = mac;
-	}
-  ~AquaSimSFama_Wait_Reply_Timer()
-  {
-    m_mac=0;
-  }
 
-/*
-	void Stop() {
-		if( this->IsRunning() ) {
-			Cancel();
-		}
-	}
-*/
+public:
+  AquaSimSFama_Wait_Reply_Timer(Ptr<AquaSimSFama> mac)
+      : Timer(Timer::CANCEL_ON_DESTROY) {
+    m_mac = mac;
+  }
+  ~AquaSimSFama_Wait_Reply_Timer() { m_mac = 0; }
+
+  /*
+          void Stop() {
+                  if( this->IsRunning() ) {
+                          Cancel();
+                  }
+          }
+  */
 protected:
-	Ptr<AquaSimSFama> m_mac;
-	void expire();
+  Ptr<AquaSimSFama> m_mac;
+  void expire();
 };
 
 /**
  * \brief Helper timer class for SFAMA
  */
-class AquaSimSFama_Backoff_Timer: public Timer{
+class AquaSimSFama_Backoff_Timer : public Timer {
   friend class AquaSimSFama;
-public:
-	AquaSimSFama_Backoff_Timer(Ptr<AquaSimSFama> mac): Timer(Timer::CANCEL_ON_DESTROY) {
-		m_mac = mac;
-	}
-  ~AquaSimSFama_Backoff_Timer()
-  {
-    m_mac=0;
-  }
 
-	/*void stop() {
-		if( this->status() == TIMER_PENDING ) {
-			cancel();
-		}
-	}*/
+public:
+  AquaSimSFama_Backoff_Timer(Ptr<AquaSimSFama> mac)
+      : Timer(Timer::CANCEL_ON_DESTROY) {
+    m_mac = mac;
+  }
+  ~AquaSimSFama_Backoff_Timer() { m_mac = 0; }
+
+  /*void stop() {
+          if( this->status() == TIMER_PENDING ) {
+                  cancel();
+          }
+  }*/
 
 protected:
-	Ptr<AquaSimSFama> m_mac;
-	void expire();
+  Ptr<AquaSimSFama> m_mac;
+  void expire();
 };
 
 /**
  * \brief Helper timer class for SFAMA
  */
-class AquaSimSFama_DataSend_Timer: public Timer {
+class AquaSimSFama_DataSend_Timer : public Timer {
   friend class AquaSimSFama;
+
 public:
-	AquaSimSFama_DataSend_Timer(Ptr<AquaSimSFama> mac): Timer(Timer::CANCEL_ON_DESTROY) {
-		m_mac = mac;
-	}
-  ~AquaSimSFama_DataSend_Timer()
-  {
-    m_mac=0;
+  AquaSimSFama_DataSend_Timer(Ptr<AquaSimSFama> mac)
+      : Timer(Timer::CANCEL_ON_DESTROY) {
+    m_mac = mac;
   }
+  ~AquaSimSFama_DataSend_Timer() { m_mac = 0; }
+  int DataSendDelay = 1;
+
 protected:
-	Ptr<AquaSimSFama> m_mac;
-	void expire();
+  Ptr<AquaSimSFama> m_mac;
+  void expire();
 };
 
-enum AquaSimSFama_Status{
-    IDLE_WAIT,  /*do nothing but just wait*/
-    WAIT_SEND_RTS,
-    WAIT_SEND_CTS,
-    WAIT_RECV_CTS,
-    WAIT_SEND_DATA,
-    WAIT_RECV_DATA,
-    WAIT_SEND_ACK,
-    WAIT_RECV_ACK,
-    BACKOFF,
-	  BACKOFF_FAIR
+enum AquaSimSFama_Status {
+  IDLE_WAIT, /*do nothing but just wait*/
+  WAIT_SEND_RTS,
+  WAIT_SEND_CTS,
+  WAIT_RECV_CTS,
+  WAIT_SEND_DATA,
+  WAIT_RECV_DATA,
+  WAIT_SEND_ACK,
+  WAIT_RECV_ACK,
+  BACKOFF,
+  BACKOFF_FAIR
 };
 
 /**
  * \brief Slotted FAMA protocol
  */
-class AquaSimSFama: public AquaSimMac{
+
+class AquaSimSFama : public AquaSimMac {
 public:
-	AquaSimSFama();
+  AquaSimSFama();
   virtual ~AquaSimSFama();
   static TypeId GetTypeId(void);
-  int64_t AssignStreams (int64_t stream);
+  int64_t AssignStreams(int64_t stream);
 
-	// to process the incomming packet
-	virtual  bool RecvProcess(Ptr<Packet>);
-	// to process the outgoing packet
-	virtual  bool TxProcess(Ptr<Packet>);
+  // to process the incomming packet
+  virtual bool RecvProcess(Ptr<Packet>);
+  // to process the outgoing packet
+  virtual bool TxProcess(Ptr<Packet>);
 
+  enum AquaSimSFama_Status m_status;
 
-	enum AquaSimSFama_Status m_status;
+  void CallBackProcess();
+  void StatusProcess(int slotnum);
 
+  void WaitSendTimerProcess(Ptr<Packet> pkt);
+  void BackoffTimerProcess();
+  void WaitReplyTimerProcess(bool directcall = false);
+  void DataSendTimerProcess();
 
-	void CallBackProcess();
-	void StatusProcess(int slotnum);
-
-	void WaitSendTimerProcess(Ptr<Packet> pkt);
-	void BackoffTimerProcess();
-	void WaitReplyTimerProcess(bool directcall=false);
-	void DataSendTimerProcess();
-
-	void InitSlotLen();
+  void InitSlotLen();
 
 private:
-	//index_ is the mac address of this node
-	double m_guardTime;  //need to be binded
-	double m_slotLen;
-    double m_rtsCtsAckNumSlotWait;
-    double m_maxPrTimeSec;
+  // index_ is the mac address of this node
+  double m_guardTime; // need to be binded
+  double m_slotLen;
+  double m_rtsCtsAckNumSlotWait;
+  double m_maxPrTimeSec;
 
-	bool m_isInRound;
-	bool m_isInBackoff;
+  bool m_isInRound;
+  bool m_isInBackoff;
 
-	int m_maxBackoffSlots;
+  int m_maxBackoffSlots;
 
-	int m_maxBurst; /*maximum number of packets in the train*/
-	double m_dataSendingInterval;
-    double m_lastRxDataSlotsNum;
+  int m_maxBurst; /*maximum number of packets in the train*/
+  double m_dataSendingInterval;
+  double m_lastRxDataSlotsNum;
 
-	//wait to send pkt at the beginning of next slot
-	AquaSimSFama_Wait_Send_Timer m_waitSendTimer;
-	//wait for the corresponding reply. Timeout if fail to get
-	AquaSimSFama_Wait_Reply_Timer m_waitReplyTimer;
-	//if there is a collision or RTS/CTS not for this node, do backoff
-	AquaSimSFama_Backoff_Timer    m_backoffTimer;
-	AquaSimSFama_DataSend_Timer	m_datasendTimer;
+  // wait to send pkt at the beginning of next slot
+  AquaSimSFama_Wait_Send_Timer m_waitSendTimer;
+  // wait for the corresponding reply. Timeout if fail to get
+  AquaSimSFama_Wait_Reply_Timer m_waitReplyTimer;
+  // if there is a collision or RTS/CTS not for this node, do backoff
+  AquaSimSFama_Backoff_Timer m_backoffTimer;
+  AquaSimSFama_DataSend_Timer m_datasendTimer;
 
-	std::queue<Ptr<Packet> > m_sendingPktQ;
-	std::queue<Ptr<Packet> > m_CachedPktQ;
-	std::queue<Ptr<Packet> > m_BackupSendingPktQ;
+  std::queue<Ptr<Packet>> m_sendingPktQ;
+  std::queue<Ptr<Packet>> m_CachedPktQ;
+  std::queue<Ptr<Packet>> m_BackupSendingPktQ;
 
-	//packet_t UpperLayerPktType;
+  // packet_t UpperLayerPktType;
   Ptr<UniformRandomVariable> m_rand;
 
   int m_slotNumHandler;
+
 protected:
-  /// creating packets, with the appropriate headers, using the assigned parameter(s)
-	Ptr<Packet> MakeRTS(AquaSimAddress recver, int slot_num);
-	Ptr<Packet> MakeCTS(AquaSimAddress rts_sender, int slot_num);
-	Ptr<Packet> FillDATA(Ptr<Packet> data_pkt);
-	Ptr<Packet> MakeACK(AquaSimAddress data_sender);
+  /// creating packets, with the appropriate headers, using the assigned
+  /// parameter(s)
+  Ptr<Packet> MakeRTS(AquaSimAddress recver, int slot_num);
+  Ptr<Packet> MakeCTS(AquaSimAddress rts_sender, int slot_num);
+  Ptr<Packet> FillDATA(Ptr<Packet> data_pkt);
+  Ptr<Packet> MakeACK(AquaSimAddress data_sender);
 
   /// handle different packet types
-	void ProcessRTS(Ptr<Packet> rts_pkt);
-	void ProcessCTS(Ptr<Packet> cts_pkt);
-	void ProcessDATA(Ptr<Packet> data_pkt);
-	void ProcessACK(Ptr<Packet> ack_pkt);
+  void ProcessRTS(Ptr<Packet> rts_pkt);
+  void ProcessCTS(Ptr<Packet> cts_pkt);
+  void ProcessDATA(Ptr<Packet> data_pkt);
+  void ProcessACK(Ptr<Packet> ack_pkt);
 
-	void DoBackoff(int backoff_slotnum);
+  void DoBackoff(int backoff_slotnum);
 
-	void SendPkt(Ptr<Packet> pkt);
-	void SendDataPkt(Ptr<Packet> pkt);
+  void SendPkt(Ptr<Packet> pkt);
+  void SendDataPkt(Ptr<Packet> pkt);
 
-	void SetStatus(enum AquaSimSFama_Status status);
-	enum AquaSimSFama_Status GetStatus();
+  void SetStatus(enum AquaSimSFama_Status status);
+  enum AquaSimSFama_Status GetStatus();
 
-	void StopTimers();
-	void ReleaseSentPkts();
+  void StopTimers();
+  void ReleaseSentPkts();
 
-	void PrepareSendingDATA();
+  void PrepareSendingDATA();
 
-	double GetPktTrainTxTime();
+  double GetPktTrainTxTime();
 
-	void ScheduleRTS(AquaSimAddress recver, int slot_num);
+  void ScheduleRTS(AquaSimAddress recver, int slot_num);
 
-	double GetTime2ComingSlot(double t);
+  double GetTime2ComingSlot(double t);
 
-	int RandBackoffSlots();
+  int RandBackoffSlots();
   void SlotInitHandler();
 
 #ifdef AquaSimSFama_DEBUG
-	void PrintQ(std::queue<Ptr<Packet> >& my_q);
-	void PrintAllQ();
+  void PrintQ(std::queue<Ptr<Packet>> &my_q);
+  void PrintAllQ();
 #endif
 
-	friend class AquaSimSFama_Backoff_Timer;
-	friend class AquaSimSFama_Wait_Send_Timer;
-	friend class AquaSimSFama_Wait_Reply_Timer;
-	friend class AquaSimSFama_DataSend_Timer;
+  friend class AquaSimSFama_Backoff_Timer;
+  friend class AquaSimSFama_Wait_Send_Timer;
+  friend class AquaSimSFama_Wait_Reply_Timer;
+  friend class AquaSimSFama_DataSend_Timer;
 
   virtual void DoDispose();
-};  // class AquaSimSFama
+}; // class AquaSimSFama
 
 } // namespace ns3
 
