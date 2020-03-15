@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>dccomms_ros_msgs</name>
-  <version>0.0.2</version>
+  <version>0.0.3</version>
   <description>The dccomms_ros_msgs package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
